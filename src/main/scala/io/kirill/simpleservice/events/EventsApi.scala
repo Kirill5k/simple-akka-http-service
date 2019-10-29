@@ -1,6 +1,6 @@
 package io.kirill.simpleservice.events
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
 import akka.http.scaladsl.server.Directives._
@@ -8,7 +8,7 @@ import akka.http.scaladsl.server.Directives._
 object EventsApi {
 
   def apply(implicit system: ActorSystem, timeout: Timeout): EventsApi = {
-    val eventsManager = system.actorOf(Props[EventsManager])
+    val eventsManager = system.actorOf(EventsManager.props)
     new EventsApi(eventsManager, timeout)
   }
 }
@@ -27,7 +27,7 @@ class EventsApi private (eventsManager: ActorRef, timeout: Timeout) {
           // get event by name
         } ~
         delete {
-          // delete event by name
+          // cancel event by name
         }
       }
     } ~
