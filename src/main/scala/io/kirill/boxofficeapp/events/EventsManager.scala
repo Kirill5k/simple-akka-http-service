@@ -1,4 +1,4 @@
-package io.kirill.simpleservice.events
+package io.kirill.boxofficeapp.events
 
 import akka.actor.{Actor, ActorLogging, Props}
 

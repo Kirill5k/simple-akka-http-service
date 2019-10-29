@@ -9,6 +9,8 @@ lazy val akkaHttpVersion = "10.1.8"
 lazy val scalaTestVersion = "3.0.8"
 
 libraryDependencies ++= Seq(
+  "com.github.nscala-time" %% "nscala-time" % "2.22.0",
+
   "ch.qos.logback" % "logback-classic" % "1.2.3",
 
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,

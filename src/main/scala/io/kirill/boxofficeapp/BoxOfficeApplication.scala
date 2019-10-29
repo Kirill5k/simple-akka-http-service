@@ -1,4 +1,4 @@
-package io.kirill.simpleservice
+package io.kirill.boxofficeapp
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -7,7 +7,7 @@ import com.typesafe.config.ConfigFactory
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-object SimpleServiceApplication extends App {
+object BoxOfficeApplication extends App {
   implicit val system = ActorSystem()
   implicit val materializer = ActorMaterializer()
   implicit val executor =  scala.concurrent.ExecutionContext.global
