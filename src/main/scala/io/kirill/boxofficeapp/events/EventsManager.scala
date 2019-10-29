@@ -1,6 +1,8 @@
 package io.kirill.boxofficeapp.events
 
 import akka.actor.{Actor, ActorLogging, PoisonPill, Props}
+import akka.pattern.{ask, pipe}
+import akka.util.Timeout
 
 object EventsManager {
   case class CreateEvent(event: Event)
@@ -12,10 +14,10 @@ object EventsManager {
   case class DeleteEventByName(eventName: String)
   case object GetAllEvents
 
-  def props = Props[EventsManager]
+  def props(implicit timeout: Timeout) = Props(new EventsManager())
 }
 
-class EventsManager extends Actor with ActorLogging {
+class EventsManager(implicit val timeout: Timeout) extends Actor with ActorLogging {
   import EventsManager._
   import TicketsSeller._
 
@@ -48,5 +50,7 @@ class EventsManager extends Actor with ActorLogging {
         log.info(s"event ${eventName} not found")
         sender() ! EventNotFound
     }
+
+    case GetAllEvents => context.children.map(child => )
   }
 }
