@@ -6,11 +6,12 @@ import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.concurrent.ExecutionContext.Implicits.global
+
 
 object BoxOfficeApplication extends App {
   implicit val system = ActorSystem()
   implicit val materializer = ActorMaterializer()
-  implicit val executor =  scala.concurrent.ExecutionContext.global
   implicit val defaultTimeout = Timeout(2 seconds)
 
   val config = ConfigFactory.load()

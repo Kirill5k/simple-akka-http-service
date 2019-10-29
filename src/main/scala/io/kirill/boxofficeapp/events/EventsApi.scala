@@ -1,5 +1,8 @@
 package io.kirill.boxofficeapp.events
 
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.StatusCodes
@@ -7,22 +10,42 @@ import akka.pattern.ask
 import akka.util.Timeout
 import akka.http.scaladsl.server.Directives._
 import spray.json._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 
 object EventsApi {
-  def apply(implicit system: ActorSystem, timeout: Timeout): EventsApi = {
-    val eventsManager = system.actorOf(EventsManager.props)
-    new EventsApi(eventsManager, timeout)
+  case class CreateEventRequest(name: String, location: String, date: LocalDateTime, seatsCount: Int) {
+    def toEvent(): Event = Event(name, location, date, seatsCount)
   }
+  case class CreateEventResponse(name: String)
+  case class ApiErrorResponse(message: String)
+  case class GetEventResponse(name: String, location: String, date: LocalDateTime, seatsCount: Int)
+
+  def apply(implicit system: ActorSystem, timeout: Timeout): EventsApi = new EventsApi()
 }
 
 trait EventsApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
+  import EventsApi._
 
+  implicit object LocalDateTimeFormat extends JsonFormat[LocalDateTime] {
+    def write(dateTime: LocalDateTime) = JsString(dateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+    def read(value: JsValue) = value match {
+      case JsString(dateTime) => LocalDateTime.parse(dateTime, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      case _ => deserializationError("ISO date time formatted string expected.")
+    }
+  }
+
+  implicit val createEventRequestFormat = jsonFormat4(CreateEventRequest)
+  implicit val createEventResponseFormat = jsonFormat1(CreateEventResponse)
+  implicit val getEventResponseFormat = jsonFormat4(GetEventResponse)
+  implicit val apiErrorResponseFormat = jsonFormat1(ApiErrorResponse)
 }
 
-class EventsApi private (eventsManager: ActorRef, timeout: Timeout) extends EventsApiJsonSupport {
+class EventsApi private (implicit system: ActorSystem, timeout: Timeout) extends EventsApiJsonSupport {
   import EventsManager._
+  import EventsApi._
 
+  val eventsManager = system.actorOf(EventsManager.props)
   val eventsRoute = pathPrefix("events") {
     path(Segment) { eventName =>
       path("tickets") {
@@ -33,12 +56,18 @@ class EventsApi private (eventsManager: ActorRef, timeout: Timeout) extends Even
       } ~
       pathEndOrSingleSlash {
         get {
-          // get event by name
-          complete(StatusCodes.ServiceUnavailable)
+          val response = (eventsManager ? GetEventByName(eventName)).mapTo[Option[Event]].map {
+            case Some(event) => StatusCodes.OK -> GetEventResponse(event.name, event.location, event.date, event.seatsCount)
+            case None => StatusCodes.NotFound -> ApiErrorResponse(s"event ${eventName} does not exist")
+          }
+          complete(response)
         } ~
         delete {
-          // cancel event by name
-          complete(StatusCodes.ServiceUnavailable)
+          val response = (eventsManager ? DeleteEventByName(eventName)).map {
+            case EventDeleted => StatusCodes.NoContent -> ""
+            case EventNotFound => StatusCodes.NotFound -> ApiErrorResponse(s"event ${eventName} does not exist")
+          }
+          complete(response)
         }
       }
     } ~
@@ -48,8 +77,13 @@ class EventsApi private (eventsManager: ActorRef, timeout: Timeout) extends Even
         complete(StatusCodes.ServiceUnavailable)
       } ~
       post {
-        // create new event
-        complete(StatusCodes.ServiceUnavailable)
+        entity(as[CreateEventRequest]) { request =>
+          val response = (eventsManager ? CreateEvent(request.toEvent())).map {
+            case EventCreated => StatusCodes.Created -> CreateEventResponse(request.name)
+            case EventAlreadyExists => StatusCodes.Conflict -> ApiErrorResponse(s"event ${request.name} already exists")
+          }
+          complete(response)
+        }
       }
     }
   }
