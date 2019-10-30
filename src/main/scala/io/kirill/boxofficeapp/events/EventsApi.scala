@@ -3,7 +3,7 @@ package io.kirill.boxofficeapp.events
 import java.time.LocalDateTime
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.pattern.ask
 import akka.util.Timeout
 import akka.http.scaladsl.server.Directives._
@@ -19,7 +19,6 @@ object EventsApi {
     def toEvent(): Event = Event(name, location, date, seatsCount)
   }
   case class CreateEventResponse(name: String)
-  case class ApiErrorResponse(message: String)
   case class GetEventResponse(name: String, location: String, date: LocalDateTime, seatsCount: Int)
 
   def apply(implicit system: ActorSystem, ec: ExecutionContext, timeout: Timeout): EventsApi = {
@@ -34,7 +33,6 @@ trait EventsApiJsonProtocol extends ApiJsonProtocol {
   implicit val createEventRequestFormat = jsonFormat4(CreateEventRequest)
   implicit val createEventResponseFormat = jsonFormat1(CreateEventResponse)
   implicit val getEventResponseFormat = jsonFormat4(GetEventResponse)
-  implicit val apiErrorResponseFormat = jsonFormat1(ApiErrorResponse)
 }
 
 class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext, timeout: Timeout) extends EventsApiJsonProtocol {
@@ -57,18 +55,16 @@ class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext
         get {
           val response = (eventsManager ? GetEventByName(eventName)).mapTo[Option[Event]].map {
             case Some(event) =>
-              StatusCodes.OK -> GetEventResponse(event.name, event.location, event.date, event.seatsCount).toJson.prettyPrint
+              toJsonResponse(StatusCodes.OK, GetEventResponse(event.name, event.location, event.date, event.seatsCount).toJson)
             case None =>
-              StatusCodes.NotFound -> ApiErrorResponse(s"event ${eventName} does not exist").toJson.prettyPrint
+              toErrorResponse(StatusCodes.NotFound, s"event ${eventName} does not exist")
           }
           complete(response)
         } ~
         delete {
           val response = (eventsManager ? DeleteEventByName(eventName)).map {
-            case EventDeleted =>
-              StatusCodes.NoContent -> ""
-            case EventNotFound =>
-              StatusCodes.NotFound -> ApiErrorResponse(s"event ${eventName} does not exist").toJson.prettyPrint
+            case EventDeleted => HttpResponse(StatusCodes.NoContent)
+            case EventNotFound => toErrorResponse(StatusCodes.NotFound, s"event ${eventName} does not exist")
           }
           complete(response)
         }
@@ -78,16 +74,16 @@ class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext
       get {
         val response = (eventsManager ? GetAllEvents).mapTo[List[Event]]
           .map(events => events.map(event => GetEventResponse(event.name, event.location, event.date, event.seatsCount)))
-          .map(StatusCodes.OK -> _)
+          .map(events => toJsonResponse(StatusCodes.OK, events.toJson))
         complete(response)
       } ~
       post {
         entity(as[CreateEventRequest]) { request =>
           val response = (eventsManager ? CreateEvent(request.toEvent())).map {
-            case EventCreated => StatusCodes.Created ->
-              CreateEventResponse(request.name).toJson.prettyPrint
+            case EventCreated =>
+              toJsonResponse(StatusCodes.Created, CreateEventResponse(request.name).toJson)
             case EventAlreadyExists =>
-              StatusCodes.Conflict -> ApiErrorResponse(s"event ${request.name} already exists").toJson.prettyPrint
+              toErrorResponse(StatusCodes.Conflict, s"event ${request.name} already exists")
           }
           complete(response)
         }
