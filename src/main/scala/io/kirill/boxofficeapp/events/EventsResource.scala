@@ -77,7 +77,7 @@ class EventsResource private(eventsManager: ActorRef)(implicit ec: ExecutionCont
       } ~
       delete {
         val response = (eventsManager ? CancelEventByName(eventName)).map {
-          case EventDeleted => HttpResponse(StatusCodes.NoContent)
+          case CancelEventSuccess => HttpResponse(StatusCodes.NoContent)
           case EventNotFound => toErrorResponse(StatusCodes.NotFound, s"event ${eventName} does not exist")
         }
         complete(response)

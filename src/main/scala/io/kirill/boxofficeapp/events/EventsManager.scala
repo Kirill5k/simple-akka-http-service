@@ -5,17 +5,16 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 object EventsManager {
   case object GetAllEvents
   case class CreateEvent(event: Event)
   case object CreateEventSuccess
   case object EventAlreadyExists
-  case object EventDeleted
   case object EventNotFound
   case class GetEventByName(eventName: String)
   case class CancelEventByName(eventName: String)
+  case object CancelEventSuccess
   case class GetTicketsForEvent(eventName: String)
   case class CreateTicketsForEvent(eventName: String, amount: Int)
   case object CreateTicketsSuccess
@@ -52,7 +51,7 @@ class EventsManager private (implicit ec: ExecutionContext, timeout: Timeout) ex
       case Some(ticketsSeller) =>
         log.info(s"cancelling event ${eventName}")
         ticketsSeller ! PoisonPill
-        sender() ! EventDeleted
+        sender() ! CancelEventSuccess
       case None =>
         log.info(s"event ${eventName} not found")
         sender() ! EventNotFound

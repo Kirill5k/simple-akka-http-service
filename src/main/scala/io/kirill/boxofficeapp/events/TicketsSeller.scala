@@ -20,7 +20,7 @@ class TicketsSeller private (event: Event) extends Actor with ActorLogging {
 
   override def receive: Receive = withTickets(List(), 0)
 
-  def withTickets(tickets: Seq[Ticket], latestTicketNumber: Int): Receive = {
+  def withTickets(tickets: List[Ticket], latestTicketNumber: Int): Receive = {
     case GetEvent =>
       log.info("returning event")
       sender() ! Some(event)
@@ -42,10 +42,10 @@ class TicketsSeller private (event: Event) extends Actor with ActorLogging {
     case CreateTickets(amount) =>
       val newTickets = (latestTicketNumber until latestTicketNumber+amount).map{ number =>
         Ticket(UUID.randomUUID().toString, event.name, LocalDateTime.now(), number)
-      }
+      }.toList
       sender() ! CreateTicketsSuccess
-      context.become(withTickets(tickets :+ newTickets, latestTicketNumber + amount))
+      context.become(withTickets(newTickets ::: tickets, latestTicketNumber + amount))
 
-    case message => log.info(s"received message: ${message}")
+    case message => log.info(s"received unexpected message: ${message}")
   }
 }
