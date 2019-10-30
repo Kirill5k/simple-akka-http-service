@@ -3,6 +3,8 @@ package io.kirill.boxofficeapp.events
 import akka.actor.{Actor, ActorLogging, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 object EventsManager {
   case class CreateEvent(event: Event)
@@ -51,6 +53,10 @@ class EventsManager(implicit val timeout: Timeout) extends Actor with ActorLoggi
         sender() ! EventNotFound
     }
 
-    case GetAllEvents => context.children.map(child => )
+    case GetAllEvents =>
+      log.info("retrieving all events")
+      val seqOfFutureEvents = context.children.map(_ ? GetEvent).map(_.mapTo[Option[Event]])
+      val futureEvents = Future.sequence(seqOfFutureEvents).map(_.flatten).map(_.toList)
+      pipe(futureEvents) to sender()
   }
 }

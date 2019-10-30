@@ -73,8 +73,11 @@ class EventsApi private (implicit system: ActorSystem, timeout: Timeout) extends
     } ~
     pathEndOrSingleSlash {
       get {
-        // get all events
-        complete(StatusCodes.ServiceUnavailable)
+        val response = (eventsManager ? GetAllEvents).mapTo[List[Event]]
+          .map(events => events.map(event => GetEventResponse(event.name, event.location, event.date, event.seatsCount)))
+          .map(StatusCodes.OK -> _)
+
+        complete(response)
       } ~
       post {
         entity(as[CreateEventRequest]) { request =>
