@@ -8,12 +8,12 @@ import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusC
 import spray.json.{DefaultJsonProtocol, JsString, JsValue, JsonFormat, deserializationError}
 import spray.json._
 
-object ApiJsonProtocol {
+object DefaultResourceJsonProtocol {
   case class ApiErrorResponse(message: String)
 }
 
-trait ApiJsonProtocol extends DefaultJsonProtocol with SprayJsonSupport {
-  import  ApiJsonProtocol._
+trait DefaultResourceJsonProtocol extends DefaultJsonProtocol with SprayJsonSupport {
+  import  DefaultResourceJsonProtocol._
 
   implicit object LocalDateTimeFormat extends JsonFormat[LocalDateTime] {
     def write(dateTime: LocalDateTime) = JsString(dateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
