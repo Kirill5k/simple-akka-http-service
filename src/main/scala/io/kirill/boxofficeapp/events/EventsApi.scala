@@ -29,7 +29,7 @@ object EventsApi {
   }
 }
 
-trait EventsApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
+trait EventsApiJsonProtocol extends DefaultJsonProtocol with SprayJsonSupport {
   import EventsApi._
 
   implicit object LocalDateTimeFormat extends JsonFormat[LocalDateTime] {
@@ -46,7 +46,7 @@ trait EventsApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
   implicit val apiErrorResponseFormat = jsonFormat1(ApiErrorResponse)
 }
 
-class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext, timeout: Timeout) extends EventsApiJsonSupport {
+class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext, timeout: Timeout) extends EventsApiJsonProtocol {
   import EventsManager._
   import EventsApi._
 
@@ -61,15 +61,19 @@ class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext
       pathEndOrSingleSlash {
         get {
           val response = (eventsManager ? GetEventByName(eventName)).mapTo[Option[Event]].map {
-            case Some(event) => StatusCodes.OK -> GetEventResponse(event.name, event.location, event.date, event.seatsCount)
-            case None => StatusCodes.NotFound -> ApiErrorResponse(s"event ${eventName} does not exist")
+            case Some(event) =>
+              StatusCodes.OK -> GetEventResponse(event.name, event.location, event.date, event.seatsCount).toJson.prettyPrint
+            case None =>
+              StatusCodes.NotFound -> ApiErrorResponse(s"event ${eventName} does not exist").toJson.prettyPrint
           }
           complete(response)
         } ~
         delete {
           val response = (eventsManager ? DeleteEventByName(eventName)).map {
-            case EventDeleted => StatusCodes.NoContent -> ""
-            case EventNotFound => StatusCodes.NotFound -> ApiErrorResponse(s"event ${eventName} does not exist")
+            case EventDeleted =>
+              StatusCodes.NoContent -> ""
+            case EventNotFound =>
+              StatusCodes.NotFound -> ApiErrorResponse(s"event ${eventName} does not exist").toJson.prettyPrint
           }
           complete(response)
         }
@@ -86,8 +90,10 @@ class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext
       post {
         entity(as[CreateEventRequest]) { request =>
           val response = (eventsManager ? CreateEvent(request.toEvent())).map {
-            case EventCreated => StatusCodes.Created -> CreateEventResponse(request.name)
-            case EventAlreadyExists => StatusCodes.Conflict -> ApiErrorResponse(s"event ${request.name} already exists")
+            case EventCreated => StatusCodes.Created ->
+              CreateEventResponse(request.name).toJson.prettyPrint
+            case EventAlreadyExists =>
+              StatusCodes.Conflict -> ApiErrorResponse(s"event ${request.name} already exists").toJson.prettyPrint
           }
           complete(response)
         }

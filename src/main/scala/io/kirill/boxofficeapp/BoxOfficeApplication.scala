@@ -14,7 +14,7 @@ import scala.language.postfixOps
 
 
 object BoxOfficeApplication extends App {
-  implicit val system = ActorSystem()
+  implicit val system = ActorSystem("boxoffice-app")
   implicit val materializer = ActorMaterializer()
   implicit val defaultTimeout = Timeout(2 seconds)
   implicit val executor: ExecutionContext =  scala.concurrent.ExecutionContext.global
