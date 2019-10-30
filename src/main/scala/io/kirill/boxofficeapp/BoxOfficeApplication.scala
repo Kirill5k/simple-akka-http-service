@@ -6,6 +6,7 @@ import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import io.kirill.boxofficeapp.common.DefaultRejectionHandler
 import io.kirill.boxofficeapp.events.EventsResource
 
 import scala.concurrent.ExecutionContext
@@ -13,7 +14,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 
-object BoxOfficeApplication extends App {
+object BoxOfficeApplication extends App with DefaultRejectionHandler {
   implicit val system = ActorSystem("boxoffice-app")
   implicit val materializer = ActorMaterializer()
   implicit val defaultTimeout = Timeout(2 seconds)
