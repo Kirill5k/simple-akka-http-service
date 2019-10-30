@@ -9,8 +9,10 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.pattern.ask
 import akka.util.Timeout
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Route
 import spray.json._
-import scala.concurrent.ExecutionContext.Implicits.global
+
+import scala.concurrent.ExecutionContext
 
 
 object EventsApi {
@@ -21,7 +23,10 @@ object EventsApi {
   case class ApiErrorResponse(message: String)
   case class GetEventResponse(name: String, location: String, date: LocalDateTime, seatsCount: Int)
 
-  def apply(implicit system: ActorSystem, timeout: Timeout): EventsApi = new EventsApi()
+  def apply(implicit system: ActorSystem, ec: ExecutionContext, timeout: Timeout): EventsApi = {
+    val eventsManager = system.actorOf(EventsManager.props)
+    new EventsApi(eventsManager)
+  }
 }
 
 trait EventsApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
@@ -41,12 +46,11 @@ trait EventsApiJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
   implicit val apiErrorResponseFormat = jsonFormat1(ApiErrorResponse)
 }
 
-class EventsApi private (implicit system: ActorSystem, timeout: Timeout) extends EventsApiJsonSupport {
+class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext, timeout: Timeout) extends EventsApiJsonSupport {
   import EventsManager._
   import EventsApi._
 
-  val eventsManager = system.actorOf(EventsManager.props)
-  val eventsRoute = pathPrefix("events") {
+  val eventsRoute: Route = pathPrefix("events") {
     path(Segment) { eventName =>
       path("tickets") {
         put {

@@ -10,7 +10,7 @@ object TicketsSeller {
   def props(event: Event) = Props(new TicketsSeller(event))
 }
 
-class TicketsSeller (event: Event) extends Actor with ActorLogging {
+class TicketsSeller private (event: Event) extends Actor with ActorLogging {
   import TicketsSeller._
 
   override def receive: Receive = withTickets(List())

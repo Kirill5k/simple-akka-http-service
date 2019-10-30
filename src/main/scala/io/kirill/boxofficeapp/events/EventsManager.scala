@@ -3,8 +3,7 @@ package io.kirill.boxofficeapp.events
 import akka.actor.{Actor, ActorLogging, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object EventsManager {
   case class CreateEvent(event: Event)
@@ -16,10 +15,10 @@ object EventsManager {
   case class DeleteEventByName(eventName: String)
   case object GetAllEvents
 
-  def props(implicit timeout: Timeout) = Props(new EventsManager())
+  def props(implicit executionContext: ExecutionContext, timeout: Timeout) = Props(new EventsManager())
 }
 
-class EventsManager(implicit val timeout: Timeout) extends Actor with ActorLogging {
+class EventsManager private (implicit ec: ExecutionContext, timeout: Timeout) extends Actor with ActorLogging {
   import EventsManager._
   import TicketsSeller._
 
