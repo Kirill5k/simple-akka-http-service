@@ -1,15 +1,14 @@
 package io.kirill.boxofficeapp.events
 
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.StatusCodes
 import akka.pattern.ask
 import akka.util.Timeout
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import io.kirill.boxofficeapp.common.ApiJsonProtocol
 import spray.json._
 
 import scala.concurrent.ExecutionContext
@@ -29,16 +28,8 @@ object EventsApi {
   }
 }
 
-trait EventsApiJsonProtocol extends DefaultJsonProtocol with SprayJsonSupport {
+trait EventsApiJsonProtocol extends ApiJsonProtocol {
   import EventsApi._
-
-  implicit object LocalDateTimeFormat extends JsonFormat[LocalDateTime] {
-    def write(dateTime: LocalDateTime) = JsString(dateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
-    def read(value: JsValue) = value match {
-      case JsString(dateTime) => LocalDateTime.parse(dateTime, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-      case _ => deserializationError("ISO date time formatted string expected.")
-    }
-  }
 
   implicit val createEventRequestFormat = jsonFormat4(CreateEventRequest)
   implicit val createEventResponseFormat = jsonFormat1(CreateEventResponse)
@@ -53,6 +44,10 @@ class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext
   val eventsRoute: Route = pathPrefix("events") {
     path(Segment) { eventName =>
       path("tickets") {
+        get {
+          // get all tickets for event
+          complete(StatusCodes.ServiceUnavailable)
+        } ~
         put {
           // buy tickets for event
           complete(StatusCodes.ServiceUnavailable)
@@ -84,7 +79,6 @@ class EventsApi private (eventsManager: ActorRef) (implicit ec: ExecutionContext
         val response = (eventsManager ? GetAllEvents).mapTo[List[Event]]
           .map(events => events.map(event => GetEventResponse(event.name, event.location, event.date, event.seatsCount)))
           .map(StatusCodes.OK -> _)
-
         complete(response)
       } ~
       post {
