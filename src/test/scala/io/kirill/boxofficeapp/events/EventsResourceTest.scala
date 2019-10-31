@@ -7,7 +7,6 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
-import io.kirill.boxofficeapp.events.EventsManager.GetAll
 import io.kirill.boxofficeapp.events.EventsResource.GetEventResponse
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers, WordSpec, WordSpecLike}
 
@@ -32,12 +31,35 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
     "returns all events" in {
       Get("/events") ~> eventsResource.eventsRoute ~> runRoute
 
-      eventsManagerProbe.expectMsg(100 millis, GetAll)
+      eventsManagerProbe.expectMsg(100 millis, EventsManager.GetAll)
       eventsManagerProbe.reply(List(event1, event2))
 
       check {
         status shouldBe StatusCodes.OK
         responseAs[List[GetEventResponse]] shouldBe List(GetEventResponse("ev1", "l1", event1.date, 100), GetEventResponse("ev2", "l2", event2.date, 200))
+      }
+    }
+
+    "returns event by name" in {
+      Get("/events/event-name") ~> eventsResource.eventsRoute ~> runRoute
+
+      eventsManagerProbe.expectMsg(100 millis, EventsManager.GetByName("event-name"))
+      eventsManagerProbe.reply(event1)
+
+      check {
+        status shouldBe StatusCodes.OK
+        responseAs[List[GetEventResponse]] shouldBe GetEventResponse("ev1", "l1", event1.date, 100)
+      }
+    }
+
+    "returns 404 when event does not exist" in {
+      Get("/events/event-name") ~> eventsResource.eventsRoute ~> runRoute
+
+      eventsManagerProbe.expectMsg(100 millis, EventsManager.GetByName("event-name"))
+      eventsManagerProbe.reply(EventsManager.NotFound)
+
+      check {
+        status shouldBe StatusCodes.NotFound
       }
     }
   }
