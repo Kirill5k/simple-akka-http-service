@@ -7,7 +7,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import akka.testkit.{TestKit, TestProbe}
 import akka.util.Timeout
-import io.kirill.boxofficeapp.events.EventsManager.GetAllEvents
+import io.kirill.boxofficeapp.events.EventsManager.GetAll
 import io.kirill.boxofficeapp.events.EventsResource.GetEventResponse
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers, WordSpec, WordSpecLike}
 
@@ -32,7 +32,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
     "returns all events" in {
       Get("/events") ~> eventsResource.eventsRoute ~> runRoute
 
-      eventsManagerProbe.expectMsg(100 millis, GetAllEvents)
+      eventsManagerProbe.expectMsg(100 millis, GetAll)
       eventsManagerProbe.reply(List(event1, event2))
 
       check {

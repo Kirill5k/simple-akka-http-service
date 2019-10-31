@@ -40,26 +40,25 @@ trait EventsResourceJsonProtocol extends DefaultResourceJsonProtocol {
 }
 
 class EventsResource (private val eventsManager: ActorRef)(implicit ec: ExecutionContext, timeout: Timeout) extends EventsResourceJsonProtocol {
-  import EventsManager._
   import EventsResource._
 
   val eventsRoute: Route = pathPrefix("events") {
     path(Segment / "tickets") { eventName =>
       get {
-        val response = (eventsManager ? GetTicketsForEvent(eventName)).mapTo[Option[List[Ticket]]].map {
-          case Some(tickets) =>
+        val response = (eventsManager ? EventsManager.GetTickets(eventName)).map {
+          case tickets: List[Ticket] =>
             val ticketResponses = tickets.map(ticket => GetTicketResponse(ticket.id, ticket.purchaseDate, ticket.number))
             toJsonResponse(StatusCodes.OK, ticketResponses.toJson)
-          case None =>
-            toErrorResponse(StatusCodes.NotFound, s"event ${eventName} does not exist")
+          case EventsManager.NotFound => toNotFoundResponse( s"event ${eventName} does not exist")
         }
         complete(response)
       } ~
       put {
         entity(as[CreateTicketsRequest]) { request =>
-          val response = (eventsManager ? CreateTicketsForEvent(eventName, request.amount)).map {
-            case CreateTicketsSuccess => HttpResponse(StatusCodes.Created)
-            case CreateTicketsFailure(message) => toErrorResponse(StatusCodes.BadRequest, message)
+          val response = (eventsManager ? EventsManager.CreateTickets(eventName, request.amount)).map {
+            case EventsManager.Success => HttpResponse(StatusCodes.Created)
+            case EventsManager.BadRequest(message) => toErrorResponse(StatusCodes.BadRequest, message)
+            case EventsManager.NotFound => toNotFoundResponse( s"event ${eventName} does not exist")
           }
           complete(response)
         }
@@ -67,35 +66,35 @@ class EventsResource (private val eventsManager: ActorRef)(implicit ec: Executio
     } ~
     path(Segment) { eventName =>
       get {
-        val response = (eventsManager ? GetEventByName(eventName)).mapTo[Option[Event]].map {
-          case Some(event) =>
+        val response = (eventsManager ? EventsManager.GetByName(eventName)).map {
+          case event: Event =>
             toJsonResponse(StatusCodes.OK, GetEventResponse(event.name, event.location, event.date, event.seatsCount).toJson)
-          case None =>
+          case EventsManager.NotFound =>
             toErrorResponse(StatusCodes.NotFound, s"event ${eventName} does not exist")
         }
         complete(response)
       } ~
       delete {
-        val response = (eventsManager ? CancelEventByName(eventName)).map {
-          case CancelEventSuccess => HttpResponse(StatusCodes.NoContent)
-          case EventNotFound => toErrorResponse(StatusCodes.NotFound, s"event ${eventName} does not exist")
+        val response = (eventsManager ? EventsManager.Cancel(eventName)).map {
+          case EventsManager.Success => HttpResponse(StatusCodes.NoContent)
+          case EventsManager.NotFound => toNotFoundResponse( s"event ${eventName} does not exist")
         }
         complete(response)
       }
     } ~
     pathEndOrSingleSlash {
       get {
-        val response = (eventsManager ? GetAllEvents).mapTo[List[Event]]
+        val response = (eventsManager ? EventsManager.GetAll).mapTo[List[Event]]
           .map(events => events.map(event => GetEventResponse(event.name, event.location, event.date, event.seatsCount)))
           .map(events => toJsonResponse(StatusCodes.OK, events.toJson))
         complete(response)
       } ~
       post {
         entity(as[CreateEventRequest]) { request =>
-          val response = (eventsManager ? CreateEvent(request.toEvent())).map {
-            case CreateEventSuccess =>
+          val response = (eventsManager ? EventsManager.Create(request.toEvent())).map {
+            case EventsManager.Success =>
               toJsonResponse(StatusCodes.Created, CreateEventResponse(request.name).toJson)
-            case EventAlreadyExists =>
+            case EventsManager.AlreadyExists =>
               toErrorResponse(StatusCodes.Conflict, s"event ${request.name} already exists")
           }
           complete(response)

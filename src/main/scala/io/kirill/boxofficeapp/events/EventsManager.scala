@@ -1,84 +1,81 @@
 package io.kirill.boxofficeapp.events
 
-import akka.actor.{Actor, ActorLogging, PoisonPill, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object EventsManager {
-  case object GetAllEvents
-  case class CreateEvent(event: Event)
-  case object CreateEventSuccess
-  case object EventAlreadyExists
-  case object EventNotFound
-  case class GetEventByName(eventName: String)
-  case class CancelEventByName(eventName: String)
-  case object CancelEventSuccess
-  case class GetTicketsForEvent(eventName: String)
-  case class CreateTicketsForEvent(eventName: String, amount: Int)
-  case object CreateTicketsSuccess
-  case class CreateTicketsFailure(message: String)
+  case object GetAll
+  case class Create(event: Event)
+  case class GetByName(eventName: String)
+  case class Cancel(eventName: String)
+  case class GetTickets(eventName: String)
+  case class CreateTickets(eventName: String, amount: Int)
+
+  case object Success
+  case class BadRequest(message: String)
+  case object AlreadyExists
+  case object NotFound
 
   def props(implicit executionContext: ExecutionContext, timeout: Timeout) = Props(new EventsManager())
 }
 
 class EventsManager private (implicit ec: ExecutionContext, timeout: Timeout) extends Actor with ActorLogging {
   import EventsManager._
-  import TicketsSeller._
+
+  private def findTicketsSeller(eventName: String, originalSender: ActorRef)(operation: ActorRef => Unit): Unit = {
+    context.child(eventName) match {
+      case Some(ticketsSeller) => operation(ticketsSeller)
+      case None =>
+        log.error(s"event ${eventName} not found")
+        originalSender ! NotFound
+    }
+  }
 
   override def receive: Receive = {
-    case CreateEvent(event) => context.child(event.name) match {
+    case Create(event) => context.child(event.name) match {
       case Some(_) =>
         log.info(s"event ${event.name} already exists")
-        sender() ! EventAlreadyExists
+        sender() ! AlreadyExists
       case None =>
         context.actorOf(TicketsSeller.props(event), event.name)
         log.info(s"created new event ${event.name}")
-        sender() ! CreateEventSuccess
+        sender() ! Success
     }
 
-    case GetEventByName(eventName) => context.child(eventName) match {
-      case Some(ticketsSeller) =>
-        log.info(s"retrieving event ${eventName}")
-        ticketsSeller forward GetEvent
-      case None =>
-        log.info(s"event ${eventName} not found")
-        sender() ! None
+    case GetByName(eventName) => findTicketsSeller(eventName, sender()) { ticketsSeller =>
+      log.info(s"retrieving event ${eventName}")
+      val futureEvent = (ticketsSeller ? TicketsSeller.GetEvent).mapTo[Event]
+      pipe(futureEvent) to sender()
     }
 
-    case CancelEventByName(eventName) => context.child(eventName) match {
-      case Some(ticketsSeller) =>
+    case Cancel(eventName) => findTicketsSeller(eventName, sender()) { ticketsSeller =>
         log.info(s"cancelling event ${eventName}")
         ticketsSeller ! PoisonPill
-        sender() ! CancelEventSuccess
-      case None =>
-        log.info(s"event ${eventName} not found")
-        sender() ! EventNotFound
+        sender() ! Success
     }
 
-    case GetAllEvents =>
+    case GetAll =>
       log.info("retrieving all events")
-      val seqOfFutureEvents = context.children.map(_ ? GetEvent).map(_.mapTo[Option[Event]])
-      val futureEvents = Future.sequence(seqOfFutureEvents).map(_.flatten).map(_.toList)
+      val seqOfFutureEvents = context.children.map(_ ? TicketsSeller.GetEvent).map(_.mapTo[Event])
+      val futureEvents = Future.sequence(seqOfFutureEvents).map(_.toList)
       pipe(futureEvents) to sender()
 
-    case GetTicketsForEvent(eventName) => context.child(eventName) match {
-      case Some(ticketsSeller) =>
+    case GetTickets(eventName) => findTicketsSeller(eventName, sender()) { ticketsSeller =>
         log.info(s"getting tickets for event ${eventName}")
-        ticketsSeller forward GetTickets
-      case None =>
-        log.info(s"event ${eventName} not found")
-        sender() ! None
+        val futureTickets = (ticketsSeller ? TicketsSeller.GetTickets).mapTo[List[Ticket]]
+        pipe(futureTickets) to sender()
     }
 
-    case CreateTicketsForEvent(eventName, amount) => context.child(eventName) match {
-      case Some(ticketsSeller) =>
+    case CreateTickets(eventName, amount) => findTicketsSeller(eventName, sender()) { ticketsSeller =>
         log.info(s"requesting to create ${amount} tickets for event ${eventName}")
-        ticketsSeller forward CreateTickets(amount)
-      case None =>
-        log.info(s"event ${eventName} not found")
-        sender() ! EventNotFound
+        val futureResponse = (ticketsSeller ? TicketsSeller.CreateTickets(amount)).map {
+          case TicketsSeller.Success => Success
+          case TicketsSeller.Failure(message) => BadRequest(message)
+        }
+        pipe(futureResponse) to sender()
     }
   }
 }
