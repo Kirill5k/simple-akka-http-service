@@ -39,7 +39,7 @@ trait EventsResourceJsonProtocol extends DefaultResourceJsonProtocol {
   implicit val createTicketsRequestFormat = jsonFormat1(CreateTicketsRequest)
 }
 
-class EventsResource private(eventsManager: ActorRef)(implicit ec: ExecutionContext, timeout: Timeout) extends EventsResourceJsonProtocol {
+class EventsResource (private val eventsManager: ActorRef)(implicit ec: ExecutionContext, timeout: Timeout) extends EventsResourceJsonProtocol {
   import EventsManager._
   import EventsResource._
 
