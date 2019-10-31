@@ -1,6 +1,6 @@
 package io.kirill.boxofficeapp.events
 
-import java.time.{LocalDate, LocalDateTime}
+import java.time.{LocalDateTime}
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, Props}
