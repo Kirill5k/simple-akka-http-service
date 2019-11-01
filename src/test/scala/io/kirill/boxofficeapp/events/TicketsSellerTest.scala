@@ -4,14 +4,9 @@ import java.time.LocalDateTime
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import org.scalatest.{BeforeAndAfterAll, WordSpecLike}
 
 
-class TicketsSellerTest extends TestKit(ActorSystem("TicketsSellerTest")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
-  override def afterAll(): Unit = {
-    TestKit.shutdownActorSystem(system)
-  }
-
+class TicketsSellerTest extends TestKit(ActorSystem("TicketsSellerTest")) with ImplicitSender with DefaultTestSpec {
   val event = Event("ev1", "l1", LocalDateTime.now().plusDays(10), 100)
   val expiredEvent = Event("ev2", "l1", LocalDateTime.of(1990, 1, 1, 12, 0), 100)
 

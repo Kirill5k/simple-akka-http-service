@@ -2,20 +2,10 @@ package io.kirill.boxofficeapp.events
 
 import java.time.LocalDateTime
 
-import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import akka.util.Timeout
-import org.scalatest.{BeforeAndAfterAll, WordSpecLike}
 
-import scala.concurrent.duration._
-import scala.language.postfixOps
-
-class EventsManagerTest extends TestKit(ActorSystem("EventsManagerTest")) with ImplicitSender with WordSpecLike with BeforeAndAfterAll {
-  override def afterAll(): Unit = {
-    TestKit.shutdownActorSystem(system)
-  }
-
-  implicit val timeout: Timeout = Timeout(1 second)
+class EventsManagerTest extends TestKit(ActorSystem("EventsManagerTest")) with ImplicitSender with DefaultTestSpec {
   import system.dispatcher
 
   val eventDate = LocalDateTime.now()

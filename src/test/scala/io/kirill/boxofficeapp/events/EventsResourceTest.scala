@@ -4,23 +4,14 @@ import java.time.LocalDateTime
 
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import akka.testkit.{TestKit, TestProbe}
-import akka.util.Timeout
+import akka.testkit.{TestProbe}
 import io.kirill.boxofficeapp.common.DefaultResourceJsonProtocol.ApiErrorResponse
 import io.kirill.boxofficeapp.events.EventsManager.{AlreadyExists, Success}
 import io.kirill.boxofficeapp.events.EventsResource._
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import org.scalatest.{Matchers}
 
-import scala.concurrent.duration._
-import scala.language.postfixOps
+class EventsResourceTest extends DefaultTestSpec with Matchers with ScalatestRouteTest with EventsResourceJsonProtocol {
 
-class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers with ScalatestRouteTest with EventsResourceJsonProtocol {
-
-  override def afterAll(): Unit = {
-    TestKit.shutdownActorSystem(system)
-  }
-
-  implicit val timeout: Timeout = Timeout(1 second)
   val eventsManagerProbe = TestProbe("em-probe")
   val eventsResource = new EventsResource(eventsManagerProbe.ref)
 
@@ -33,7 +24,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "return all events" in {
         Get("/events") ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.GetAll)
+        eventsManagerProbe.expectMsg(EventsManager.GetAll)
         eventsManagerProbe.reply(List(event1, event2))
 
         check {
@@ -48,7 +39,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "create new event" in {
         Post("/events", request) ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.Create(Event("new-event", "location", eventDate, 100)))
+        eventsManagerProbe.expectMsg(EventsManager.Create(Event("new-event", "location", eventDate, 100)))
         eventsManagerProbe.reply(Success)
 
         check {
@@ -60,7 +51,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "return 409 when event already exists" in {
         Post("/events", request) ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.Create(Event("new-event", "location", eventDate, 100)))
+        eventsManagerProbe.expectMsg(EventsManager.Create(Event("new-event", "location", eventDate, 100)))
         eventsManagerProbe.reply(AlreadyExists)
 
         check {
@@ -74,7 +65,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "return event by name" in {
         Get("/events/event-name") ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.GetByName("event-name"))
+        eventsManagerProbe.expectMsg(EventsManager.GetByName("event-name"))
         eventsManagerProbe.reply(event1)
 
         check {
@@ -86,7 +77,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "return 404 when requested event does not exist" in {
         Get("/events/event-name") ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.GetByName("event-name"))
+        eventsManagerProbe.expectMsg(EventsManager.GetByName("event-name"))
         eventsManagerProbe.reply(EventsManager.NotFound)
 
         check {
@@ -100,7 +91,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "cancel event by name" in {
         Delete("/events/event-name") ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.Cancel("event-name"))
+        eventsManagerProbe.expectMsg(EventsManager.Cancel("event-name"))
         eventsManagerProbe.reply(Success)
 
         check {
@@ -111,7 +102,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "return 404 when cancelled event does not exist" in {
         Delete("/events/event-name") ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.Cancel("event-name"))
+        eventsManagerProbe.expectMsg(EventsManager.Cancel("event-name"))
         eventsManagerProbe.reply(EventsManager.NotFound)
 
         check {
@@ -125,7 +116,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "return tickets for an event" in {
         Get("/events/event-name/tickets") ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.GetTickets("event-name"))
+        eventsManagerProbe.expectMsg(EventsManager.GetTickets("event-name"))
         eventsManagerProbe.reply(List(Ticket("t1", "ev1", eventDate, 1), Ticket("t2", "ev1", eventDate, 2)))
 
         check {
@@ -137,7 +128,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "return 404 when requested event does not exist" in {
         Get("/events/event-name/tickets") ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.GetTickets("event-name"))
+        eventsManagerProbe.expectMsg(EventsManager.GetTickets("event-name"))
         eventsManagerProbe.reply(EventsManager.NotFound)
 
         check {
@@ -152,7 +143,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "create new tickets" in {
         Put("/events/event-name/tickets", request) ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.CreateTickets("event-name", 100))
+        eventsManagerProbe.expectMsg(EventsManager.CreateTickets("event-name", 100))
         eventsManagerProbe.reply(EventsManager.Success)
 
         check {
@@ -163,7 +154,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "return bad request when can't create tickets" in {
         Put("/events/event-name/tickets", request) ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.CreateTickets("event-name", 100))
+        eventsManagerProbe.expectMsg(EventsManager.CreateTickets("event-name", 100))
         eventsManagerProbe.reply(EventsManager.BadRequest("invalid date"))
 
         check {
@@ -175,7 +166,7 @@ class EventsResourceTest extends WordSpec with BeforeAndAfterAll with Matchers w
       "return 404 when requested event does not exist" in {
         Put("/events/event-name/tickets", request) ~> eventsResource.eventsRoute ~> runRoute
 
-        eventsManagerProbe.expectMsg(100 millis, EventsManager.CreateTickets("event-name", 100))
+        eventsManagerProbe.expectMsg(EventsManager.CreateTickets("event-name", 100))
         eventsManagerProbe.reply(EventsManager.NotFound)
 
         check {
