@@ -22,12 +22,12 @@ object EventsManager {
   def props(implicit executionContext: ExecutionContext, timeout: Timeout) = Props(new EventsManager())
 }
 
-class EventsManager private (implicit ec: ExecutionContext, timeout: Timeout) extends Actor with ActorLogging {
+class EventsManager (implicit ec: ExecutionContext, timeout: Timeout) extends Actor with ActorLogging {
   import EventsManager._
 
-  private def findTicketsSeller(eventName: String, originalSender: ActorRef)(operation: ActorRef => Unit): Unit = {
+  private def findTicketsSeller(eventName: String, originalSender: ActorRef)(f: ActorRef => Unit): Unit = {
     context.child(eventName) match {
-      case Some(ticketsSeller) => operation(ticketsSeller)
+      case Some(ticketsSeller) => f(ticketsSeller)
       case None =>
         log.error(s"event ${eventName} not found")
         originalSender ! NotFound
